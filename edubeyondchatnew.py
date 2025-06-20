@@ -10,7 +10,7 @@ import uvicorn
 app = FastAPI()
 
 origins = [
-    "https://edubeyondchat.vercel.app"
+    "https://appcedubeyond.vercel.app"
 ]
 
 app.add_middleware(

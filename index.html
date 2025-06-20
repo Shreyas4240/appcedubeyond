@@ -1,0 +1,235 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>EduBeyond AP Physics C Chatbot</title>
+  <style>
+    body {
+      font-family: Georgia, serif;
+      background: #f7f9fc;
+      margin: 0;
+      padding: 0;
+    }
+
+    #chat-container {
+      width: 100%;
+      max-width: 700px;
+      margin: 40px auto;
+      color: #1c1c1c;
+    }
+
+    #chat-box {
+      height: 420px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 16px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .message {
+      display: flex;
+      gap: 10px;
+      max-width: 85%;
+      font-family: Georgia, serif;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    .message.bot {
+      align-self: flex-start;
+    }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border: 1.5px solid #013b5c;
+      background-color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .avatar img {
+      width: 80%;
+      height: 80%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .bubble {
+      background: #f2f7ff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      font-family: Georgia, serif;
+    }
+
+    .message.user .bubble {
+      background: #d9ecff; /* light blue */
+    }
+
+    form {
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+      font-family: Georgia, serif;
+    }
+
+    button {
+      padding: 12px 18px;
+      background: #ffffff;
+      color: #013b5c;
+      border: 1px solid #013b5c;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-family: Georgia, serif;
+    }
+
+    .spinner-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .glow-ring {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: conic-gradient(#013b5c, #0288d1, #013b5c);
+      animation: spin 1s linear infinite;
+      box-shadow: 0 0 8px #0288d1;
+      position: relative;
+    }
+
+    .glow-ring::before {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      right: 3px;
+      bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="chat-container">
+    <h2 style="text-align:center;margin-bottom:10px">Ask the AI Chatbot</h2>
+    <div id="chat-box"></div>
+    <form id="chat-form">
+      <label for="user-input" style="position:absolute;left:-9999px">Type your question</label>
+      <input type="text" id="user-input" placeholder="Type your question..." required />
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <script>
+    const chatForm = document.getElementById("chat-form");
+    const chatBox = document.getElementById("chat-box");
+    const userInput = document.getElementById("user-input");
+
+    const API_URL = "https://edubeyondchatnew-341399921446.us-central1.run.app/chat";
+    const BOT_ICON = "https://i.imgur.com/65xaycU.jpeg";
+    const history = [];
+
+    chatForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const userText = userInput.value.trim();
+      if (!userText) return;
+
+      history.push({ role: "user", content: userText });
+      userInput.value = "";
+
+      history.push({ role: "assistant", content: "⏳ Thinking...", spinner: true });
+      renderChat();
+
+      const messageHistory = [
+        { role: "system", content: "You are a helpful AI assistant." },
+        ...history.filter(m => !m.spinner)
+      ];
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            session_id: "frontend-session",
+            messages: messageHistory
+          })
+        });
+
+        const data = await response.json();
+        history[history.length - 1] = {
+          role: "assistant",
+          content: data.response || "⚠️ No response from model."
+        };
+      } catch (err) {
+        history[history.length - 1] = {
+          role: "assistant",
+          content: "❌ Error connecting to server."
+        };
+        console.error("Chat error:", err);
+      }
+
+      renderChat();
+    });
+
+    function renderChat() {
+      chatBox.innerHTML = "";
+      for (const msg of history) {
+        const div = document.createElement("div");
+        div.classList.add("message", msg.role);
+
+        if (msg.spinner) {
+          div.innerHTML = `
+            <div class="avatar"><img src="${BOT_ICON}" alt="Bot" /></div>
+            <div class="spinner-wrap"><div class="glow-ring"></div></div>
+          `;
+        } else {
+          const avatar = msg.role === "assistant"
+            ? `<div class="avatar"><img src="${BOT_ICON}" alt="Bot" /></div>` : "";
+          const bubble = `<div class="bubble">${formatMarkdown(msg.content)}</div>`;
+          div.innerHTML = msg.role === "assistant" ? `${avatar}${bubble}` : `${bubble}`;
+        }
+
+        chatBox.appendChild(div);
+      }
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function formatMarkdown(text) {
+      return text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+    }
+
+    history.push({ role: "assistant", content: "Ask me a question!" });
+    renderChat();
+  </script>
+</body>
+</html>

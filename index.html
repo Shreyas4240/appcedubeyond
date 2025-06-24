@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -17,13 +18,30 @@
       color: #1c1c1c;
     }
 
+    #selector {
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    #selector label {
+      font-size: 16px;
+    }
+
+    #bot-select {
+      font-family: Georgia, serif;
+      font-size: 16px;
+      padding: 6px 10px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+    }
+
     #chat-box {
       height: 420px;
       overflow-y: auto;
       border: 1px solid #ccc;
       padding: 16px;
       background: #fff;
-      border-radius: 8px;
+      border-radius: 16px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.05);
       display: flex;
       flex-direction: column;
@@ -50,7 +68,7 @@
     .avatar {
       width: 42px;
       height: 42px;
-      border: 1.5px solid #013b5c;
+      border: 2px solid #013b5c;
       background-color: white;
       border-radius: 50%;
       display: flex;
@@ -69,14 +87,13 @@
     .bubble {
       background: #f2f7ff;
       padding: 10px 14px;
-      border-radius: 8px;
+      border-radius: 16px;
       line-height: 1.5;
       white-space: pre-wrap;
-      font-family: Georgia, serif;
     }
 
     .message.user .bubble {
-      background: #d9ecff; /* light blue */
+      background: #d9ecff;
     }
 
     form {
@@ -89,7 +106,7 @@
       flex: 1;
       padding: 12px;
       border: 1px solid #ccc;
-      border-radius: 6px;
+      border-radius: 16px;
       font-size: 16px;
       font-family: Georgia, serif;
     }
@@ -99,7 +116,7 @@
       background: #ffffff;
       color: #013b5c;
       border: 1px solid #013b5c;
-      border-radius: 6px;
+      border-radius: 16px;
       cursor: pointer;
       font-size: 16px;
       font-family: Georgia, serif;
@@ -141,7 +158,17 @@
 <body>
   <div id="chat-container">
     <h2 style="text-align:center;margin-bottom:10px">Ask the AI Chatbot</h2>
+
+    <div id="selector">
+      <label for="bot-select">Select Subject:</label>
+      <select id="bot-select">
+        <option value="mechanics">AP Physics C: Mechanics</option>
+        <option value="em">AP Physics C: E & M</option>
+      </select>
+    </div>
+
     <div id="chat-box"></div>
+
     <form id="chat-form">
       <label for="user-input" style="position:absolute;left:-9999px">Type your question</label>
       <input type="text" id="user-input" placeholder="Type your question..." required />
@@ -153,6 +180,7 @@
     const chatForm = document.getElementById("chat-form");
     const chatBox = document.getElementById("chat-box");
     const userInput = document.getElementById("user-input");
+    const botSelect = document.getElementById("bot-select");
 
     const API_URL = "https://edubeyondchatnew-341399921446.us-central1.run.app/chat";
     const BOT_ICON = "https://i.imgur.com/65xaycU.jpeg";
@@ -163,6 +191,12 @@
       const userText = userInput.value.trim();
       if (!userText) return;
 
+      const selectedBot = botSelect.value;
+
+      const systemPrompt = selectedBot === "mechanics"
+        ? "You are an expert tutor for AP Physics C: Mechanics. Answer student questions clearly with equations and brief explanations."
+        : "You are an expert tutor for AP Physics C: Electricity & Magnetism. Answer student questions clearly with equations and brief explanations.";
+
       history.push({ role: "user", content: userText });
       userInput.value = "";
 
@@ -170,7 +204,7 @@
       renderChat();
 
       const messageHistory = [
-        { role: "system", content: "You are a helpful AI assistant." },
+        { role: "system", content: systemPrompt },
         ...history.filter(m => !m.spinner)
       ];
 
@@ -181,6 +215,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_id: "frontend-session",
+            bot: selectedBot,
             messages: messageHistory
           })
         });

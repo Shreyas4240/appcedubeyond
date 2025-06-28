@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,23 +11,19 @@
       margin: 0;
       padding: 0;
     }
-
     #chat-container {
       width: 100%;
       max-width: 700px;
       margin: 40px auto;
       color: #1c1c1c;
     }
-
     #selector {
       text-align: center;
       margin-bottom: 14px;
     }
-
     #selector label {
       font-size: 16px;
     }
-
     #bot-select {
       font-family: Georgia, serif;
       font-size: 16px;
@@ -34,7 +31,6 @@
       border-radius: 12px;
       border: 1px solid #ccc;
     }
-
     #chat-box {
       height: 420px;
       overflow-y: auto;
@@ -47,24 +43,20 @@
       flex-direction: column;
       gap: 14px;
     }
-
     .message {
       display: flex;
       gap: 10px;
       max-width: 85%;
       font-family: Georgia, serif;
     }
-
     .message.user {
       align-self: flex-end;
       flex-direction: row-reverse;
       text-align: right;
     }
-
     .message.bot {
       align-self: flex-start;
     }
-
     .avatar {
       width: 42px;
       height: 42px;
@@ -76,14 +68,12 @@
       justify-content: center;
       flex-shrink: 0;
     }
-
     .avatar img {
       width: 80%;
       height: 80%;
       object-fit: cover;
       border-radius: 50%;
     }
-
     .bubble {
       background: #f2f7ff;
       padding: 10px 14px;
@@ -91,17 +81,23 @@
       line-height: 1.5;
       white-space: pre-wrap;
     }
-
     .message.user .bubble {
       background: #d9ecff;
     }
-
+    .context-info {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+      padding: 8px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 3px solid #013b5c;
+    }
     form {
       margin-top: 16px;
       display: flex;
       gap: 10px;
     }
-
     input[type="text"] {
       flex: 1;
       padding: 12px;
@@ -110,7 +106,6 @@
       font-size: 16px;
       font-family: Georgia, serif;
     }
-
     button {
       padding: 12px 18px;
       background: #ffffff;
@@ -121,13 +116,11 @@
       font-size: 16px;
       font-family: Georgia, serif;
     }
-
     .spinner-wrap {
       display: flex;
       align-items: center;
       gap: 10px;
     }
-
     .glow-ring {
       width: 22px;
       height: 22px;
@@ -137,7 +130,6 @@
       box-shadow: 0 0 8px #0288d1;
       position: relative;
     }
-
     .glow-ring::before {
       content: "";
       position: absolute;
@@ -148,17 +140,29 @@
       background: #fff;
       border-radius: 50%;
     }
-
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+    .status-indicator {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .status-online {
+      color: #28a745;
+    }
+    .status-offline {
+      color: #dc3545;
     }
   </style>
 </head>
 <body>
   <div id="chat-container">
     <h2 style="text-align:center;margin-bottom:10px">Ask the AI Chatbot</h2>
-
+    <div id="status-indicator" class="status-indicator">
+      <span id="status-text">Checking connection...</span>
+    </div>
     <div id="selector">
       <label for="bot-select">Select Subject:</label>
       <select id="bot-select">
@@ -166,82 +170,118 @@
         <option value="em">AP Physics C: E & M</option>
       </select>
     </div>
-
     <div id="chat-box"></div>
-
     <form id="chat-form">
       <label for="user-input" style="position:absolute;left:-9999px">Type your question</label>
       <input type="text" id="user-input" placeholder="Type your question..." required />
       <button type="submit">Send</button>
     </form>
   </div>
-
   <script>
     const chatForm = document.getElementById("chat-form");
     const chatBox = document.getElementById("chat-box");
     const userInput = document.getElementById("user-input");
     const botSelect = document.getElementById("bot-select");
-
-    const API_URL = "https://edubeyondchatnew-341399921446.us-central1.run.app/chat";
+    const statusText = document.getElementById("status-text");
+    const statusIndicator = document.getElementById("status-indicator");
+    
+    // Replace with your Flask server URL when deployed
+    const API_URL = "http://localhost:5000/query"; // Placeholder - update with your server URL
+    const HEALTH_URL = "http://localhost:5000/health"; // Health check endpoint
     const BOT_ICON = "https://i.imgur.com/65xaycU.jpeg";
+    
     const history = [];
+    let isServerOnline = false;
+
+    // server health
+    async function checkServerHealth() {
+      try {
+        const response = await fetch(HEALTH_URL, {
+          method: "GET",
+          mode: "cors"
+        });
+        const data = await response.json();
+        if (data.status === "healthy") {
+          isServerOnline = true;
+          statusText.textContent = "RAG System Online";
+          statusIndicator.className = "status-indicator status-online";
+        } else {
+          throw new Error("Server unhealthy");
+        }
+      } catch (err) {
+        isServerOnline = false;
+        statusText.textContent = "RAG System Offline";
+        statusIndicator.className = "status-indicator status-offline";
+        console.error("Health check failed:", err);
+      }
+    }
 
     chatForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const userText = userInput.value.trim();
       if (!userText) return;
+      
+      if (!isServerOnline) {
+        alert("RAG system is offline. Please check the server connection.");
+        return;
+      }
 
       const selectedBot = botSelect.value;
-
-      const systemPrompt = selectedBot === "mechanics"
-        ? "You are an expert tutor for AP Physics C: Mechanics. Answer student questions clearly with equations and brief explanations."
-        : "You are an expert tutor for AP Physics C: Electricity & Magnetism. Answer student questions clearly with equations and brief explanations.";
-
+      
+      // add to history
       history.push({ role: "user", content: userText });
       userInput.value = "";
-
-      history.push({ role: "assistant", content: "⏳ Thinking...", spinner: true });
+      
+      // add to loading
+      history.push({ role: "assistant", content: "searching docs", spinner: true });
       renderChat();
-
-      const messageHistory = [
-        { role: "system", content: systemPrompt },
-        ...history.filter(m => !m.spinner)
-      ];
 
       try {
         const response = await fetch(API_URL, {
           method: "POST",
           mode: "cors",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json"
+          },
           body: JSON.stringify({
-            session_id: "frontend-session",
-            bot: selectedBot,
-            messages: messageHistory
+            question: userText,
+            top_k: 5 
           })
         });
 
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data = await response.json();
+        
+        // Replace loading message with actual response
         history[history.length - 1] = {
           role: "assistant",
-          content: data.response || "⚠️ No response from model."
+          content: data.answer || "error: no response from model.",
+          context: data.relevant_chunks || []
         };
+        
       } catch (err) {
         history[history.length - 1] = {
           role: "assistant",
-          content: "❌ Error connecting to server."
+          content: "error connecting to rag system"
         };
         console.error("Chat error:", err);
+        
+        checkServerHealth();
       }
-
+      
       renderChat();
     });
 
     function renderChat() {
       chatBox.innerHTML = "";
+      
       for (const msg of history) {
         const div = document.createElement("div");
         div.classList.add("message", msg.role);
-
+        
         if (msg.spinner) {
           div.innerHTML = `
             <div class="avatar"><img src="${BOT_ICON}" alt="Bot" /></div>
@@ -249,22 +289,46 @@
           `;
         } else {
           const avatar = msg.role === "assistant"
-            ? `<div class="avatar"><img src="${BOT_ICON}" alt="Bot" /></div>` : "";
-          const bubble = `<div class="bubble">${formatMarkdown(msg.content)}</div>`;
-          div.innerHTML = msg.role === "assistant" ? `${avatar}${bubble}` : `${bubble}`;
+            ? `<div class="avatar"><img src="${BOT_ICON}" alt="Bot" /></div>` 
+            : "";
+          
+          let bubbleContent = `<div class="bubble">${formatMarkdown(msg.content)}</div>`;
+          
+          if (msg.role === "assistant" && msg.context && msg.context.length > 0) {
+            const contextInfo = `
+              <div class="context-info">
+                Answer based on ${msg.context.length} relevant section(s) from AP Physics C materials
+              </div>
+            `;
+            bubbleContent += contextInfo;
+          }
+          
+          div.innerHTML = msg.role === "assistant" 
+            ? `${avatar}${bubbleContent}` 
+            : `${bubbleContent}`;
         }
-
+        
         chatBox.appendChild(div);
       }
+      
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
     function formatMarkdown(text) {
-      return text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+      return text
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.*?)\*/g, "<em>$1</em>")
+        .replace(/\n/g, "<br>");
     }
 
-    history.push({ role: "assistant", content: "Ask me a question!" });
+    checkServerHealth();
+    history.push({ 
+      role: "assistant", 
+      content: "Hello! I'm your AP Physics C tutor. I can help you with questions about Mechanics and Electricity & Magnetism using the official course materials. What would you like to learn about?" 
+    });
     renderChat();
+
+    setInterval(checkServerHealth, 30000);
   </script>
 </body>
 </html>

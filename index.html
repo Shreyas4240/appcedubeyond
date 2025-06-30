@@ -1,9 +1,13 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>EduBeyond AP Physics C Chatbot</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script>
+
   <style>
     body {
       font-family: Georgia, serif;
@@ -184,10 +188,9 @@
     const botSelect = document.getElementById("bot-select");
     const statusText = document.getElementById("status-text");
     const statusIndicator = document.getElementById("status-indicator");
-    
-    // Replace with your Flask server URL when deployed
-    const API_URL = "http://localhost:5000/query"; // Placeholder - update with your server URL
-    const HEALTH_URL = "http://localhost:5000/health"; // Health check endpoint
+
+    const HEALTH_URL = "https://edubeyond-backend-312323158076.us-central1.run.app/health";
+    const API_URL = "https://edubeyond-backend-312323158076.us-central1.run.app/query";
     const BOT_ICON = "https://i.imgur.com/65xaycU.jpeg";
     
     const history = [];
@@ -289,35 +292,29 @@
           `;
         } else {
           const avatar = msg.role === "assistant"
-            ? `<div class="avatar"><img src="${BOT_ICON}" alt="Bot" /></div>` 
-            : "";
-          
-          let bubbleContent = `<div class="bubble">${formatMarkdown(msg.content)}</div>`;
-          
-          if (msg.role === "assistant" && msg.context && msg.context.length > 0) {
-            const contextInfo = `
-              <div class="context-info">
-                Answer based on ${msg.context.length} relevant section(s) from AP Physics C materials
-              </div>
-            `;
-            bubbleContent += contextInfo;
-          }
-          
-          div.innerHTML = msg.role === "assistant" 
-            ? `${avatar}${bubbleContent}` 
-            : `${bubbleContent}`;
+            ? `<div class="avatar"><img src="${BOT_ICON}" alt="Bot" /></div>` : "";
+          const bubble = `<div class="bubble">${formatMarkdown(msg.content)}</div>`;
+          div.innerHTML = msg.role === "assistant" ? `${avatar}${bubble}` : `${bubble}`;
         }
         
         chatBox.appendChild(div);
       }
-      
       chatBox.scrollTop = chatBox.scrollHeight;
+
+      // Render math inside chat box using KaTeX
+      renderMathInElement(chatBox, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "\\[", right: "\\]", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false }
+        ]
+      });
     }
 
     function formatMarkdown(text) {
       return text
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.*?)\*/g, "<em>$1</em>")
         .replace(/\n/g, "<br>");
     }
 
